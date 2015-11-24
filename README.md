@@ -1,8 +1,10 @@
 # About
 Circle menu for android.可旋转的环形菜单。   
-抽取自我的小软件“输入法皮肤控v1.3.6(http://ime.qqtheme.cn)”
+抽取自我的小软件“输入法皮肤控v1.3.6”，见：http://ime.qqtheme.cn
 
-# Simple 
+# Usage 
+The files you will need: CircleMenu.java、MenuItem.java、Utils.Java.   
+You can copy and paste them into your project, and then refactor them.   
 ```xml
     <cn.qqtheme.circlemenu.widget.CircleMenu
         android:id="@+id/main_menu"
@@ -51,7 +53,8 @@ Circle menu for android.可旋转的环形菜单。
 ```
 
 # Thanks
-修改改自https://github.com/szugyi/CircleMenu，感谢原作者的无私奉献。   
+修改自szugyi的Android-CircleMenu，支持文字及图标显示，感谢原作者的无私奉献：   
+https://github.com/szugyi/CircleMenu。   
 如果动画不需要兼容android3.0以下，可以删掉nineoldandroids，改用android.animation.*包   
 
 # Screenshots
