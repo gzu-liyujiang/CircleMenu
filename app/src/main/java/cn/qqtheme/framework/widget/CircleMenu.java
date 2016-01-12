@@ -1,40 +1,40 @@
-package cn.qqtheme.circlemenu.widget;
+package cn.qqtheme.framework.widget;
 
+import android.animation.Animator;
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
+import android.graphics.Color;
+import android.support.annotation.ColorInt;
 import android.support.annotation.DrawableRes;
 import android.support.annotation.NonNull;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.GestureDetector;
+import android.view.GestureDetector.SimpleOnGestureListener;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
-
-import com.nineoldandroids.animation.Animator;
-import com.nineoldandroids.animation.ObjectAnimator;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 /**
  * 可旋转的环形菜单
  *
  * @author 李玉江[QQ:1032694760]
- * @link https://github.com/szugyi/CircleMenu
- * @since 2015/11/25
- * Created By Android Studio
+ * @link https://github.com/szugyi/Android-CircleMenu
+ * @since 2015/10/27
  */
 public class CircleMenu extends ViewGroup {
     // Event listeners
     private OnItemClickListener onItemClickListener = null;
     private OnItemSelectedListener onItemSelectedListener = null;
-    private OnCenterClickListener onCenterClickListener = null;
     private OnRotationFinishedListener onRotationFinishedListener = null;
-    // Center image
-    private Bitmap centerImage, imageScaled;
-    private Matrix matrix;
 
     // Sizes of the ViewGroup
     private int circleWidth, circleHeight;
@@ -53,13 +53,15 @@ public class CircleMenu extends ViewGroup {
     private FirstChildLocation firstChildPosition = FirstChildLocation.South;
     private boolean isRotating = true;
 
-    private MenuItem tappedView = null;
+    private ItemView tappedView = null;
     private int selected = 0;
 
     // Rotation animator
     private ObjectAnimator animator;
 
     private int iconSize = 50;//dp
+    private int textColor = Color.BLACK;
+    private int textSize = 18;//sp
 
     public CircleMenu(Context context) {
         this(context, null);
@@ -84,10 +86,22 @@ public class CircleMenu extends ViewGroup {
         gestureDetector = new GestureDetector(getContext(),
                 new MyGestureListener());
         quadrantTouched = new boolean[]{false, false, false, false, false};
-        // Initialize the matrix only once
-        matrix = new Matrix();
         // Needed for the ViewGroup to be drawn
         setWillNotDraw(false);
+
+        if (isInEditMode()) {
+            setItems(new String[]{
+                            "选项", "选项", "选项", "选项", "选项", "选项"
+                    },
+                    new int[]{
+                            android.R.drawable.ic_menu_report_image,
+                            android.R.drawable.ic_menu_report_image,
+                            android.R.drawable.ic_menu_report_image,
+                            android.R.drawable.ic_menu_report_image,
+                            android.R.drawable.ic_menu_report_image,
+                            android.R.drawable.ic_menu_report_image
+                    });
+        }
     }
 
     public float getAngle() {
@@ -115,12 +129,12 @@ public class CircleMenu extends ViewGroup {
         this.iconSize = iconSize;
     }
 
-    public void setCenterImage(Bitmap bitmap) {
-        this.centerImage = bitmap;
+    public void setTextColor(int textColor) {
+        this.textColor = textColor;
     }
 
-    public void setCenterImage(@DrawableRes int res) {
-        setCenterImage(BitmapFactory.decodeResource(getResources(), res));
+    public void setTextSize(int textSize) {
+        this.textSize = textSize;
     }
 
     public void setItems(@DrawableRes int[] itemIcons) {
@@ -128,17 +142,20 @@ public class CircleMenu extends ViewGroup {
     }
 
     public void setItems(String[] itemTexts, @DrawableRes int[] itemIcons) {
+        removeAllViews();
         if (itemTexts != null && itemTexts.length != itemIcons.length) {
             throw new IllegalArgumentException("text count must equals icon count");
         }
         for (int i = 0; i < itemIcons.length; i++) {
-            MenuItem itemView = new MenuItem(getContext());
+            ItemView itemView = new ItemView(getContext());
             itemView.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
             itemView.setPosition(i);
             itemView.setIcon(itemIcons[i], iconSize);
             if (itemTexts != null) {
                 itemView.setText(itemTexts[i]);
                 itemView.setTextVisible(true);
+                itemView.setTextColor(textColor);
+                itemView.setTextSize(textSize);
             } else {
                 itemView.setTextVisible(false);
             }
@@ -152,8 +169,8 @@ public class CircleMenu extends ViewGroup {
      * @return the view which is currently the closest to the first item
      * position
      */
-    public MenuItem getSelectedItem() {
-        return (selected >= 0) ? (MenuItem) getChildAt(selected) : null;
+    public ItemView getSelectedItem() {
+        return (selected >= 0) ? (ItemView) getChildAt(selected) : null;
     }
 
     @Override
@@ -161,33 +178,6 @@ public class CircleMenu extends ViewGroup {
         // The sizes of the ViewGroup
         circleHeight = getHeight();
         circleWidth = getWidth();
-
-        if (centerImage != null) {
-            // Scaling the size of the center image
-            if (imageScaled == null) {
-                float sx = (((radius + childWidth / 4) * 2) / (float) centerImage
-                        .getWidth());
-                float sy = (((radius + childWidth / 4) * 2) / (float) centerImage
-                        .getHeight());
-
-                matrix = new Matrix();
-                matrix.postScale(sx, sy);
-
-                int wh = Utils.toPx(getContext(), iconSize);
-                imageScaled = Bitmap.createBitmap(Utils.scale(centerImage, wh, wh)
-                        , 0, 0, wh, wh, matrix, false);
-            }
-
-            if (imageScaled != null) {
-                // Move the background to the center
-                int cx = (circleWidth - imageScaled.getWidth()) / 2;
-                int cy = (circleHeight - imageScaled.getHeight()) / 2;
-
-                Canvas g = canvas;
-                canvas.rotate(0, circleWidth / 2, circleHeight / 2);
-                g.drawBitmap(imageScaled, cx, cy, null);
-            }
-        }
     }
 
     @Override
@@ -250,7 +240,7 @@ public class CircleMenu extends ViewGroup {
         float angleDelay = 360.0f / getChildCount();
 
         for (int i = 0; i < childCount; i++) {
-            final MenuItem child = (MenuItem) getChildAt(i);
+            final ItemView child = (ItemView) getChildAt(i);
             if (child.getVisibility() == GONE) {
                 continue;
             }
@@ -281,10 +271,10 @@ public class CircleMenu extends ViewGroup {
      *
      * @param view the view to be rotated
      */
-    private void rotateViewToCenter(MenuItem view) {
+    private void rotateViewToCenter(ItemView view) {
         Log.v(VIEW_LOG_TAG, "rotateViewToCenter");
         if (isRotating) {
-            float destAngle = firstChildPosition.getValue() - view.getAngle();
+            float destAngle = (firstChildPosition.getValue() - view.getAngle());
 
             if (destAngle < 0) {
                 destAngle += 360;
@@ -309,7 +299,7 @@ public class CircleMenu extends ViewGroup {
             return;
         }
 
-        animator = ObjectAnimator.ofFloat(CircleMenu.this, "angle", angle,
+        animator = ObjectAnimator.ofFloat(this, "angle", angle,
                 endDegree);
         animator.setDuration(duration);
         animator.setInterpolator(new DecelerateInterpolator());
@@ -364,7 +354,7 @@ public class CircleMenu extends ViewGroup {
                 }
             }
 
-            final MenuItem child = (MenuItem) getChildAt(i);
+            final ItemView child = (ItemView) getChildAt(i);
             if (child.getVisibility() == GONE) {
                 continue;
             }
@@ -452,7 +442,7 @@ public class CircleMenu extends ViewGroup {
                         break;
                     case MotionEvent.ACTION_UP:
                         if (didMove) {
-                            rotateViewToCenter((MenuItem) getChildAt(selected));
+                            rotateViewToCenter((ItemView) getChildAt(selected));
                         }
                         break;
                 }
@@ -467,7 +457,7 @@ public class CircleMenu extends ViewGroup {
         return false;
     }
 
-    private class MyGestureListener extends GestureDetector.SimpleOnGestureListener {
+    private class MyGestureListener extends SimpleOnGestureListener {
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX,
@@ -527,21 +517,8 @@ public class CircleMenu extends ViewGroup {
         public boolean onSingleTapUp(MotionEvent e) {
             int tappedViewsPosition = pointToPosition(e.getX(), e.getY());
             if (tappedViewsPosition >= 0) {
-                tappedView = (MenuItem) getChildAt(tappedViewsPosition);
+                tappedView = (ItemView) getChildAt(tappedViewsPosition);
                 tappedView.setPressed(true);
-            } else {
-                float centerX = circleWidth / 2;
-                float centerY = circleHeight / 2;
-
-                if (e.getX() < centerX + (childWidth / 2)
-                        && e.getX() > centerX - childWidth / 2
-                        && e.getY() < centerY + (childHeight / 2)
-                        && e.getY() > centerY - (childHeight / 2)) {
-                    if (onCenterClickListener != null) {
-                        onCenterClickListener.onCenterClick();
-                        return true;
-                    }
-                }
             }
 
             if (tappedView != null) {
@@ -594,7 +571,7 @@ public class CircleMenu extends ViewGroup {
     }
 
     public interface OnItemClickListener {
-        void onItemClick(MenuItem view);
+        void onItemClick(ItemView view);
     }
 
     public void setOnItemClickListener(OnItemClickListener onItemClickListener) {
@@ -602,29 +579,151 @@ public class CircleMenu extends ViewGroup {
     }
 
     public interface OnItemSelectedListener {
-        void onItemSelected(MenuItem view);
+        void onItemSelected(ItemView view);
     }
 
     public void setOnItemSelectedListener(OnItemSelectedListener onItemSelectedListener) {
         this.onItemSelectedListener = onItemSelectedListener;
     }
 
-    public interface OnCenterClickListener {
-        void onCenterClick();
-    }
-
-    public void setOnCenterClickListener(
-            OnCenterClickListener onCenterClickListener) {
-        this.onCenterClickListener = onCenterClickListener;
-    }
-
     public interface OnRotationFinishedListener {
-        void onRotationFinished(MenuItem view);
+        void onRotationFinished(ItemView view);
     }
 
     public void setOnRotationFinishedListener(OnRotationFinishedListener onRotationFinishedListener) {
         this.onRotationFinishedListener = onRotationFinishedListener;
     }
 
+    /**
+     * Custom text and icon for the {@link #CircleMenu} class.
+     */
+    public static class ItemView extends LinearLayout {
+        private TextView textView;
+        private ImageView imageView;
+        // Angle is used for the positioning on the circle
+        private float angle = 0;
+        // Position represents the index of this view in the view groups children array
+        private int position = 0;
+        // The text of the view
+        private String text;
+
+        /**
+         * Return the angle of the view.
+         *
+         * @return Returns the angle of the view in degrees.
+         */
+        public float getAngle() {
+            return angle;
+        }
+
+        /**
+         * Set the angle of the view.
+         *
+         * @param angle The angle to be set for the view.
+         */
+        public void setAngle(float angle) {
+            this.angle = angle;
+        }
+
+        /**
+         * Return the position of the view.
+         *
+         * @return Returns the position of the view.
+         */
+        public int getPosition() {
+            return position;
+        }
+
+        /**
+         * Set the position of the view.
+         *
+         * @param position The position to be set for the view.
+         */
+        public void setPosition(int position) {
+            this.position = position;
+        }
+
+        /**
+         * Return the text of the view.
+         *
+         * @return Returns the text of the view.
+         */
+        public String getText() {
+            return text;
+        }
+
+        /**
+         * Set the text of the view.
+         *
+         * @param text The text to be set for the view.
+         */
+        public void setText(String text) {
+            this.text = text;
+            textView.setText(text);
+        }
+
+        public void setIcon(Bitmap icon, int iconSize) {
+            iconSize = Utils.toPx(getContext(), iconSize);
+            imageView.setImageBitmap(Utils.scale(icon, iconSize, iconSize));
+        }
+
+        public void setIcon(@DrawableRes int icon, int iconSize) {
+            setIcon(BitmapFactory.decodeResource(getResources(), icon), iconSize);
+        }
+
+        public void setTextVisible(boolean iconVisible) {
+            textView.setVisibility(iconVisible ? VISIBLE : GONE);
+        }
+
+        public void setTextColor(@ColorInt int color) {
+            textView.setTextColor(color);
+        }
+
+        public void setTextSize(int size) {
+            textView.setTextSize(size);
+        }
+
+        public ItemView(Context context) {
+            super(context);
+            int wrapContent = ViewGroup.LayoutParams.WRAP_CONTENT;
+            setLayoutParams(new ViewGroup.LayoutParams(wrapContent, wrapContent));
+            setOrientation(VERTICAL);
+            setGravity(Gravity.CENTER);
+            textView = new TextView(context);
+            imageView = new ImageView(context);
+            addView(imageView);
+            addView(textView);
+        }
+
+    }
+
+    public static class Utils {
+
+        /**
+         * dp转换为px
+         *
+         * @param context
+         * @param dpValue
+         * @return
+         */
+        public static int toPx(Context context, float dpValue) {
+            final float scale = context.getResources().getDisplayMetrics().density;
+            int pxValue = (int) (dpValue * scale + 0.5f);
+            return pxValue;
+        }
+
+        /**
+         * 缩放图片，会变形
+         *
+         * @param bitmap
+         * @param newWidth
+         * @param newHeight
+         * @return
+         */
+        public static Bitmap scale(Bitmap bitmap, int newWidth, int newHeight) {
+            return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true);
+        }
+
+    }
 
 }
